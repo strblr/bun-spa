@@ -208,7 +208,7 @@ describe("serveSpa", () => {
       const testRequest = new Request("http://localhost/test");
       const response = await handler(testRequest);
       expect(response.status).toBe(501);
-      expect(await response.text()).toBe("SPA static server disabled");
+      expect(await response.text()).toBe("bun-spa disabled");
     });
 
     test("should return custom disabled response", async () => {

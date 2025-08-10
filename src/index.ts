@@ -13,7 +13,7 @@ export async function serveSpa({
   indexInjectorPlaceholder = "<!-- bun-spa-placeholder -->",
   indexInjector,
   disabled = false,
-  disabledResponse = new Response("SPA static server disabled", {
+  disabledResponse = new Response("bun-spa disabled", {
     status: 501
   })
 }: ServeSpaOptions = {}): Promise<(req: Request) => Promise<Response>> {
