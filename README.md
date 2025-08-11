@@ -46,14 +46,15 @@ serveSpa(options?: ServeSpaOptions): Promise<(req: Request) => Promise<Response>
 
 Options:
 
-| Option                     | Type                                                    | Default                                             | Description                                                                                   |     |
-| -------------------------- | ------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------- | --- |
-| `dist`                     | `string`                                                | `"./dist"`                                          | Directory scanned at startup; files cached in memory.                                         |     |
-| `index`                    | `string`                                                | `"index.html"`                                      | SPA entry file served as fallback for unknown routes.                                         |     |
-| `indexInjectorPlaceholder` | `string \| RegExp`                                      | `"<!-- bun-spa-placeholder -->"`                    | Marker in `index.html` to be replaced at request time. Typically a comment.                   |
-| `indexInjector`            | `(url: URL, req: Request) => string \| Promise<string>` | `undefined`                                         | Returns HTML that replaces the placeholder in `index.html`.                                   |
-| `disabled`                 | `boolean`                                               | `false`                                             | If `true`, the returned handler always responds with `disabledResponse`. Files aren't loaded. |     |
-| `disabledResponse`         | `Response`                                              | `new Response("bun-spa disabled", { status: 501 })` | Response returned when `disabled` is `true`.                                                  |     |
+| Option                     | Type                                                    | Default                                             | Description                                                                                              |     |
+| -------------------------- | ------------------------------------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | --- |
+| `dist`                     | `string`                                                | `"./dist"`                                          | Directory scanned at startup; files cached in memory.                                                    |     |
+| `glob`                     | `string`                                                | `"**/*"`                                            | Glob pattern for which files to load from `dist/`. Uses [Bun.Glob](https://bun.sh/docs/api/glob) syntax. |     |
+| `index`                    | `string`                                                | `"index.html"`                                      | SPA entry file served as fallback for unknown routes.                                                    |     |
+| `indexInjectorPlaceholder` | `string \| RegExp`                                      | `"<!-- bun-spa-placeholder -->"`                    | Marker in `index.html` to be replaced at request time. Typically a comment.                              |
+| `indexInjector`            | `(url: URL, req: Request) => string \| Promise<string>` | `undefined`                                         | Returns HTML that replaces the placeholder in `index.html`.                                              |
+| `disabled`                 | `boolean`                                               | `false`                                             | If `true`, the returned handler always responds with `disabledResponse`. Files aren't loaded.            |     |
+| `disabledResponse`         | `Response`                                              | `new Response("bun-spa disabled", { status: 501 })` | Response returned when `disabled` is `true`.                                                             |     |
 
 ### Notes
 

@@ -200,6 +200,49 @@ describe("serveSpa", () => {
     });
   });
 
+  describe("Glob pattern", () => {
+    test("should include only HTML files when glob is restrictive", async () => {
+      const result = await serveSpa({ dist: TEST_DIST, glob: "**/*.html" });
+      const handler = result as (req: Request) => Promise<Response>;
+
+      const indexRequest = new Request("http://localhost/index.html");
+      const indexResponse = await handler(indexRequest);
+      expect(indexResponse.status).toBe(200);
+      expect(indexResponse.headers.get("Content-Type")).toContain("html");
+      const indexContent = await indexResponse.text();
+      expect(indexContent).toContain("<title>Test SPA</title>");
+
+      const jsRequest = new Request("http://localhost/assets/app.js");
+      const jsResponse = await handler(jsRequest);
+      expect(jsResponse.status).toBe(200);
+      expect(jsResponse.headers.get("Content-Type")).toContain("html");
+      const jsContent = await jsResponse.text();
+      expect(jsContent).toContain("<title>Test SPA</title>");
+      expect(jsContent).not.toContain("console.log('Hello from SPA');");
+
+      const jsonRequest = new Request("http://localhost/api/data.json");
+      const jsonResponse = await handler(jsonRequest);
+      expect(jsonResponse.status).toBe(200);
+      expect(jsonResponse.headers.get("Content-Type")).toContain("html");
+      const jsonContent = await jsonResponse.text();
+      expect(jsonContent).toContain("<title>Test SPA</title>");
+    });
+
+    test("should error when glob excludes index file", async () => {
+      let threw = false;
+      try {
+        await serveSpa({
+          dist: TEST_DIST,
+          glob: "**/*.css",
+          index: "index.html"
+        });
+      } catch {
+        threw = true;
+      }
+      expect(threw).toBe(true);
+    });
+  });
+
   describe("Disabled mode", () => {
     test("should return default disabled response when disabled", async () => {
       const result = await serveSpa({ disabled: true });

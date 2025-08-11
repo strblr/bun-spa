@@ -1,5 +1,6 @@
 export interface ServeSpaOptions {
   dist?: string;
+  glob?: string;
   index?: string;
   indexInjectorPlaceholder?: string | RegExp;
   indexInjector?: (url: URL, req: Request) => string | Promise<string>;
@@ -9,6 +10,7 @@ export interface ServeSpaOptions {
 
 export async function serveSpa({
   dist = "./dist",
+  glob = "**/*",
   index = "index.html",
   indexInjectorPlaceholder = "<!-- bun-spa-placeholder -->",
   indexInjector,
@@ -23,7 +25,7 @@ export async function serveSpa({
 
   const files = new Map<string, { type: string; content: ArrayBuffer }>();
 
-  for await (const entry of new Bun.Glob("**/*").scan(dist)) {
+  for await (const entry of new Bun.Glob(glob).scan(dist)) {
     const file = Bun.file(`${dist}/${entry}`);
     files.set(`/${entry}`, {
       type: file.type,
