@@ -1,35 +1,54 @@
-export interface ServeSpaOptions {
+export interface BunSpaOptions {
   dist?: string;
   glob?: string;
   index?: string;
   indexInjectorPlaceholder?: string | RegExp;
-  indexInjector?: (url: URL, req: Request) => string | Promise<string>;
+  indexInjector?: (options: BunSpaCallbackOptions) => string | Promise<string>;
+  headers?: (
+    options: BunSpaCallbackOptions
+  ) => Record<string, string> | Promise<Record<string, string>>;
   disabled?: boolean;
   disabledResponse?: Response;
 }
 
-export async function serveSpa({
+export interface BunSpaCallbackOptions {
+  url: URL;
+  req: Request;
+  file: BunSpaFile;
+}
+
+export interface BunSpaFile {
+  type: string;
+  content: ArrayBuffer;
+  file: Bun.BunFile;
+  isIndex: boolean;
+}
+
+export async function bunSpa({
   dist = "./dist",
   glob = "**/*",
   index = "index.html",
   indexInjectorPlaceholder = "<!-- bun-spa-placeholder -->",
   indexInjector,
+  headers,
   disabled = false,
   disabledResponse = new Response("bun-spa disabled", {
     status: 501
   })
-}: ServeSpaOptions = {}): Promise<(req: Request) => Promise<Response>> {
+}: BunSpaOptions = {}): Promise<(req: Request) => Promise<Response>> {
   if (disabled) {
     return async () => disabledResponse.clone() as Response;
   }
 
-  const files = new Map<string, { type: string; content: ArrayBuffer }>();
+  const files = new Map<string, BunSpaFile>();
 
   for await (const entry of new Bun.Glob(glob).scan(dist)) {
     const file = Bun.file(`${dist}/${entry}`);
     files.set(`/${entry}`, {
       type: file.type,
-      content: await file.arrayBuffer()
+      content: await file.arrayBuffer(),
+      file,
+      isIndex: entry === index
     });
   }
 
@@ -38,20 +57,20 @@ export async function serveSpa({
 
   return async (req: Request): Promise<Response> => {
     const url = new URL(req.url);
-    const file = files.get(url.pathname);
-    if (file) {
-      return new Response(file.content, {
-        headers: { "Content-Type": file.type }
-      });
-    }
-    const content = !indexInjector
-      ? indexContent
-      : indexContent.replace(
-          indexInjectorPlaceholder,
-          await indexInjector(url, req)
-        );
+    const file = files.get(url.pathname) ?? indexFile;
+    const content =
+      !file.isIndex || !indexInjector
+        ? file.content
+        : await Promise.resolve(indexInjector({ url, req, file })).then(
+            injected =>
+              indexContent.replace(indexInjectorPlaceholder, () => injected)
+          );
+
     return new Response(content, {
-      headers: { "Content-Type": indexFile.type }
+      headers: {
+        "Content-Type": file.type,
+        ...(await headers?.({ url, req, file }))
+      }
     });
   };
 }

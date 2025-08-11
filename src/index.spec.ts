@@ -1,7 +1,7 @@
 import { expect, test, describe, beforeEach, afterEach } from "bun:test";
 import { mkdir, writeFile, rm } from "fs/promises";
 import path from "path";
-import { serveSpa } from ".";
+import { BunSpaCallbackOptions, bunSpa } from ".";
 
 async function createTestDistFolder(folderName: string): Promise<string> {
   if (folderName === "dist") {
@@ -73,7 +73,7 @@ async function cleanupTestDistFolder(folderName: string) {
   } catch (error) {}
 }
 
-describe("serveSpa", () => {
+describe("bunSpa", () => {
   let TEST_DIST: string;
 
   beforeEach(async () => {
@@ -86,7 +86,7 @@ describe("serveSpa", () => {
 
   describe("Basic functionality", () => {
     test("should serve static files from dist directory", async () => {
-      const result = await serveSpa({ dist: TEST_DIST });
+      const result = await bunSpa({ dist: TEST_DIST });
       const handler = result as (req: Request) => Promise<Response>;
 
       const jsRequest = new Request("http://localhost/assets/app.js");
@@ -98,7 +98,7 @@ describe("serveSpa", () => {
     });
 
     test("should serve CSS files with correct content type", async () => {
-      const result = await serveSpa({ dist: TEST_DIST });
+      const result = await bunSpa({ dist: TEST_DIST });
       const handler = result as (req: Request) => Promise<Response>;
 
       const cssRequest = new Request("http://localhost/assets/styles.css");
@@ -110,7 +110,7 @@ describe("serveSpa", () => {
     });
 
     test("should serve JSON files with correct content type", async () => {
-      const result = await serveSpa({ dist: TEST_DIST });
+      const result = await bunSpa({ dist: TEST_DIST });
       const handler = result as (req: Request) => Promise<Response>;
 
       const jsonRequest = new Request("http://localhost/api/data.json");
@@ -123,7 +123,7 @@ describe("serveSpa", () => {
     });
 
     test("should serve nested files", async () => {
-      const result = await serveSpa({ dist: TEST_DIST });
+      const result = await bunSpa({ dist: TEST_DIST });
       const handler = result as (req: Request) => Promise<Response>;
 
       const nestedRequest = new Request(
@@ -136,7 +136,7 @@ describe("serveSpa", () => {
     });
 
     test("should fallback to index.html for non-existent routes", async () => {
-      const result = await serveSpa({ dist: TEST_DIST });
+      const result = await bunSpa({ dist: TEST_DIST });
       const handler = result as (req: Request) => Promise<Response>;
 
       const spaRequest = new Request("http://localhost/some/spa/route");
@@ -155,7 +155,7 @@ describe("serveSpa", () => {
       const customDist = await createTestDistFolder("custom-test-dist");
       await writeFile(path.join(customDist, "test.txt"), "custom content");
 
-      const result = await serveSpa({ dist: customDist });
+      const result = await bunSpa({ dist: customDist });
       const handler = result as (req: Request) => Promise<Response>;
 
       const request = new Request("http://localhost/test.txt");
@@ -167,7 +167,7 @@ describe("serveSpa", () => {
     });
 
     test("should use custom index file", async () => {
-      const result = await serveSpa({
+      const result = await bunSpa({
         dist: TEST_DIST,
         index: "custom.html"
       });
@@ -188,7 +188,7 @@ describe("serveSpa", () => {
         "<html><body>Default</body></html>"
       );
 
-      const result = await serveSpa({ dist: defaultDist });
+      const result = await bunSpa({ dist: defaultDist });
       const handler = result as (req: Request) => Promise<Response>;
 
       const request = new Request("http://localhost/");
@@ -202,7 +202,7 @@ describe("serveSpa", () => {
 
   describe("Glob pattern", () => {
     test("should include only HTML files when glob is restrictive", async () => {
-      const result = await serveSpa({ dist: TEST_DIST, glob: "**/*.html" });
+      const result = await bunSpa({ dist: TEST_DIST, glob: "**/*.html" });
       const handler = result as (req: Request) => Promise<Response>;
 
       const indexRequest = new Request("http://localhost/index.html");
@@ -231,7 +231,7 @@ describe("serveSpa", () => {
     test("should error when glob excludes index file", async () => {
       let threw = false;
       try {
-        await serveSpa({
+        await bunSpa({
           dist: TEST_DIST,
           glob: "**/*.css",
           index: "index.html"
@@ -245,7 +245,7 @@ describe("serveSpa", () => {
 
   describe("Disabled mode", () => {
     test("should return default disabled response when disabled", async () => {
-      const result = await serveSpa({ disabled: true });
+      const result = await bunSpa({ disabled: true });
       expect(typeof result).toBe("function");
       const handler = result as (req: Request) => Promise<Response>;
       const testRequest = new Request("http://localhost/test");
@@ -260,7 +260,7 @@ describe("serveSpa", () => {
         headers: { "X-Custom": "disabled" }
       });
 
-      const result = await serveSpa({
+      const result = await bunSpa({
         disabled: true,
         disabledResponse: customResponse
       });
@@ -277,11 +277,11 @@ describe("serveSpa", () => {
 
   describe("Index injection", () => {
     test("should inject content using default placeholder", async () => {
-      const injector = (url: URL) => {
+      const injector = ({ url }: BunSpaCallbackOptions) => {
         return `<p>Injected for ${url.pathname}</p>`;
       };
 
-      const result = await serveSpa({
+      const result = await bunSpa({
         dist: TEST_DIST,
         indexInjector: injector
       });
@@ -298,7 +298,7 @@ describe("serveSpa", () => {
     test("should inject content using custom placeholder", async () => {
       const injector = () => "<p>Custom injection</p>";
 
-      const result = await serveSpa({
+      const result = await bunSpa({
         dist: TEST_DIST,
         index: "custom.html",
         indexInjectorPlaceholder: "{{PLACEHOLDER}}",
@@ -323,7 +323,7 @@ describe("serveSpa", () => {
       const injector = () => "INJECTED";
       const regexPlaceholder = /START_INJECT_HERE.*?end/g;
 
-      const result = await serveSpa({
+      const result = await bunSpa({
         dist: TEST_DIST,
         index: "regex.html",
         indexInjectorPlaceholder: regexPlaceholder,
@@ -341,12 +341,12 @@ describe("serveSpa", () => {
     });
 
     test("should handle async index injector", async () => {
-      const asyncInjector = async (url: URL, req: Request) => {
+      const asyncInjector = async ({ url }: BunSpaCallbackOptions) => {
         await new Promise(resolve => setTimeout(resolve, 1));
         return `<p>Async injected for ${url.pathname}</p>`;
       };
 
-      const result = await serveSpa({
+      const result = await bunSpa({
         dist: TEST_DIST,
         indexInjector: asyncInjector
       });
@@ -362,7 +362,7 @@ describe("serveSpa", () => {
     test("should not inject for existing static files", async () => {
       const injector = () => "<p>Should not appear</p>";
 
-      const result = await serveSpa({
+      const result = await bunSpa({
         dist: TEST_DIST,
         indexInjector: injector
       });
@@ -380,13 +380,13 @@ describe("serveSpa", () => {
       let capturedUrl: URL | null = null;
       let capturedReq: Request | null = null;
 
-      const injector = (url: URL, req: Request) => {
+      const injector = ({ url, req }: BunSpaCallbackOptions) => {
         capturedUrl = url;
         capturedReq = req;
         return "<p>Captured</p>";
       };
 
-      const result = await serveSpa({
+      const result = await bunSpa({
         dist: TEST_DIST,
         indexInjector: injector
       });
@@ -416,7 +416,7 @@ describe("serveSpa", () => {
       }).catch(() => {});
 
       try {
-        await serveSpa({ dist: emptyDist });
+        await bunSpa({ dist: emptyDist });
         expect(true).toBe(false);
       } catch (error) {
         expect(error).toBeDefined();
@@ -426,7 +426,7 @@ describe("serveSpa", () => {
     });
 
     test("should handle root path request", async () => {
-      const result = await serveSpa({ dist: TEST_DIST });
+      const result = await bunSpa({ dist: TEST_DIST });
       const handler = result as (req: Request) => Promise<Response>;
 
       const request = new Request("http://localhost/");
@@ -438,7 +438,7 @@ describe("serveSpa", () => {
     });
 
     test("should handle requests with query parameters", async () => {
-      const result = await serveSpa({ dist: TEST_DIST });
+      const result = await bunSpa({ dist: TEST_DIST });
       const handler = result as (req: Request) => Promise<Response>;
 
       const request = new Request(
@@ -452,7 +452,7 @@ describe("serveSpa", () => {
     });
 
     test("should handle requests with hash fragments", async () => {
-      const result = await serveSpa({ dist: TEST_DIST });
+      const result = await bunSpa({ dist: TEST_DIST });
       const handler = result as (req: Request) => Promise<Response>;
 
       const request = new Request("http://localhost/app/route#section");
@@ -464,7 +464,7 @@ describe("serveSpa", () => {
     });
 
     test("should preserve original content type for index fallback", async () => {
-      const result = await serveSpa({ dist: TEST_DIST });
+      const result = await bunSpa({ dist: TEST_DIST });
       const handler = result as (req: Request) => Promise<Response>;
 
       const request = new Request("http://localhost/non/existent/route");
@@ -479,7 +479,7 @@ describe("serveSpa", () => {
         "special content"
       );
 
-      const result = await serveSpa({ dist: TEST_DIST });
+      const result = await bunSpa({ dist: TEST_DIST });
       const handler = result as (req: Request) => Promise<Response>;
 
       const request = new Request("http://localhost/special-file@2x.png");
@@ -492,7 +492,7 @@ describe("serveSpa", () => {
 
   describe("Performance and memory considerations", () => {
     test("should preload all files into memory", async () => {
-      const result = await serveSpa({ dist: TEST_DIST });
+      const result = await bunSpa({ dist: TEST_DIST });
       const handler = result as (req: Request) => Promise<Response>;
 
       const request1 = new Request("http://localhost/assets/app.js");
@@ -505,7 +505,7 @@ describe("serveSpa", () => {
     });
 
     test("should handle concurrent requests", async () => {
-      const result = await serveSpa({ dist: TEST_DIST });
+      const result = await bunSpa({ dist: TEST_DIST });
       const handler = result as (req: Request) => Promise<Response>;
 
       const requests = [
@@ -522,6 +522,78 @@ describe("serveSpa", () => {
       responses.forEach(response => {
         expect(response.status).toBe(200);
       });
+    });
+  });
+
+  describe("Headers option", () => {
+    test("should add custom headers and allow overriding Content-Type", async () => {
+      const calls: Array<{ path: string; isIndex: boolean; type: string }> = [];
+
+      const result = await bunSpa({
+        dist: TEST_DIST,
+        headers: ({ url, file }: BunSpaCallbackOptions) => {
+          calls.push({
+            path: url.pathname,
+            isIndex: file.isIndex,
+            type: file.type
+          });
+          return {
+            "X-Test": "yes",
+            "Content-Type": file.isIndex
+              ? "text/custom-html"
+              : "application/custom-js"
+          };
+        }
+      });
+      const handler = result as (req: Request) => Promise<Response>;
+
+      const jsResponse = await handler(
+        new Request("http://localhost/assets/app.js")
+      );
+      expect(jsResponse.headers.get("X-Test")).toBe("yes");
+      expect(jsResponse.headers.get("Content-Type")).toBe(
+        "application/custom-js"
+      );
+
+      const fallbackResponse = await handler(
+        new Request("http://localhost/unknown/route")
+      );
+      expect(fallbackResponse.headers.get("X-Test")).toBe("yes");
+      expect(fallbackResponse.headers.get("Content-Type")).toBe(
+        "text/custom-html"
+      );
+
+      expect(calls).toHaveLength(2);
+      expect(calls[0].path).toBe("/assets/app.js");
+      expect(calls[0].isIndex).toBe(false);
+      expect(typeof calls[0].type).toBe("string");
+
+      expect(calls[1].path).toBe("/unknown/route");
+      expect(calls[1].isIndex).toBe(true);
+      expect(calls[1].type).toContain("html");
+    });
+
+    test("should support async headers function and allow Content-Type override", async () => {
+      const result = await bunSpa({
+        dist: TEST_DIST,
+        headers: async ({ file }) => ({
+          "X-Async": "true",
+          "Content-Type": file.isIndex ? "async/html" : "async/js"
+        })
+      });
+      const handler = result as (req: Request) => Promise<Response>;
+
+      const jsRes = await handler(
+        new Request("http://localhost/assets/app.js")
+      );
+      expect(jsRes.headers.get("X-Async")).toBe("true");
+      expect(jsRes.headers.get("Content-Type")).toBe("async/js");
+
+      const htmlRes = await handler(
+        new Request("http://localhost/unknown/route")
+      );
+      expect(htmlRes.headers.get("X-Async")).toBe("true");
+      expect(htmlRes.headers.get("Content-Type")).toBe("async/html");
     });
   });
 });
