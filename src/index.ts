@@ -58,15 +58,16 @@ export async function bunSpa({
   return async (req: Request): Promise<Response> => {
     const url = new URL(req.url);
     const file = files.get(url.pathname) ?? indexFile;
-    const content =
-      !file.isIndex || !indexInjector
-        ? file.content
-        : await Promise.resolve(indexInjector({ url, req, file })).then(
-            injected =>
-              indexContent.replace(indexInjectorPlaceholder, () => injected)
-          );
 
-    return new Response(content, {
+    let body: ArrayBuffer | string;
+    if (!file.isIndex || !indexInjector) {
+      body = file.content;
+    } else {
+      const injected = await indexInjector({ url, req, file });
+      body = indexContent.replace(indexInjectorPlaceholder, () => injected);
+    }
+
+    return new Response(body, {
       headers: {
         "Content-Type": file.type,
         ...(await headers?.({ url, req, file }))
