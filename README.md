@@ -4,6 +4,7 @@ Serve bundled SPAs (like a `vite build`) from a Bun server, fast and simple.
 
 - **What it does**: Loads your built files from `dist/` (customizable) at startup, caches them in memory, and serves them. Unknown routes fall back to `index.html` (also customizable).
 - **Why it’s fast**: Everything is served directly from memory after the initial load. There are no disk reads during requests.
+- **Why it’s cool**: You can inject dynamic content (like meta tags for social sharing) into your SPA at request time. No need for heavy frameworks like Next.js.
 
 ### Install
 
@@ -25,11 +26,13 @@ Bun.serve({
 });
 ```
 
-### Inject runtime content (optional)
+`bunSpa` returns a simple request handler, so it can be passed to the `fetch` option as well.
 
-Add a placeholder to your `index.html` (defaults to `<!-- bun-spa-placeholder -->`) and provide an `indexInjector` to replace it at request time. Useful for adding meta tags on the fly for social media previews.
+### Inject dynamic content (optional)
 
-**IMPORTANT: If you inject user-provided content, make sure to escape it and follow strict guidelines to prevent security issues. See [escape-goat](https://www.npmjs.com/package/escape-goat), [escape-html](https://www.npmjs.com/package/escape-html), [sanitize-html](https://www.npmjs.com/package/sanitize-html), etc.**
+Add a placeholder to your `index.html` (by default bun-spa looks for `<!-- bun-spa-placeholder -->`) and provide an `indexInjector` to replace it at request time. Useful for adding dynamic meta tags for social media previews.
+
+**IMPORTANT: If you inject user-provided content, make sure to sanitize it and follow strict guidelines to prevent security issues. See [escape-goat](https://www.npmjs.com/package/escape-goat), [escape-html](https://www.npmjs.com/package/escape-html), [sanitize-html](https://www.npmjs.com/package/sanitize-html), etc.**
 
 ```ts
 import { htmlEscape } from "escape-goat";
@@ -64,16 +67,16 @@ bunSpa(options?: BunSpaOptions): Promise<(req: Request) => Promise<Response>>
 
 `BunSpaOptions`:
 
-| Option                     | Type                                                                                            | Default                                             | Description                                                                                              |     |
-| -------------------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | --- |
-| `dist`                     | `string`                                                                                        | `"./dist"`                                          | Directory scanned at startup; files cached in memory.                                                    |     |
-| `glob`                     | `string`                                                                                        | `"**/*"`                                            | Glob pattern for which files to load from `dist/`. Uses [Bun.Glob](https://bun.sh/docs/api/glob) syntax. |     |
-| `index`                    | `string`                                                                                        | `"index.html"`                                      | SPA entry file served as fallback for unknown routes.                                                    |     |
-| `indexInjectorPlaceholder` | `string \| RegExp`                                                                              | `"<!-- bun-spa-placeholder -->"`                    | Marker in `index.html` to be replaced at request time. Typically a comment.                              |
+| Option                     | Type                                                                                            | Default                                             | Description                                                                                              |
+| -------------------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `dist`                     | `string`                                                                                        | `"./dist"`                                          | Directory scanned at startup; files cached in memory.                                                    |
+| `glob`                     | `string`                                                                                        | `"**/*"`                                            | Glob pattern for which files to load from `dist/`. Uses [Bun.Glob](https://bun.sh/docs/api/glob) syntax. |
+| `index`                    | `string`                                                                                        | `"index.html"`                                      | SPA entry file served as fallback for unknown routes.                                                    |
+| `indexInjectorPlaceholder` | `string \| RegExp`                                                                              | `"<!-- bun-spa-placeholder -->"`                    | Marker in `index.html` to be replaced at request time.                                                   |
 | `indexInjector`            | `(options: BunSpaCallbackOptions) => string \| Promise<string>`                                 | `undefined`                                         | Returns a string that replaces the placeholder in `index.html`.                                          |
 | `headers`                  | `(options: BunSpaCallbackOptions) => Record<string, string> \| Promise<Record<string, string>>` | `undefined`                                         | Additional headers to send with the response. Merged with default `Content-Type`.                        |
-| `disabled`                 | `boolean`                                                                                       | `false`                                             | If `true`, the returned handler always responds with `disabledResponse`. Files aren't loaded.            |     |
-| `disabledResponse`         | `Response`                                                                                      | `new Response("bun-spa disabled", { status: 501 })` | Response returned when `disabled` is `true`.                                                             |     |
+| `disabled`                 | `boolean`                                                                                       | `false`                                             | If `true`, the returned handler always responds with `disabledResponse`. Files aren't loaded.            |
+| `disabledResponse`         | `Response`                                                                                      | `new Response("bun-spa disabled", { status: 501 })` | Response returned when `disabled` is `true`.                                                             |
 
 Other types:
 
@@ -96,4 +99,5 @@ interface BunSpaFile {
 
 - Files are read once at startup and kept in memory for fast responses.
 - All unknown paths return `index.html` (with optional injection).
+- You are responsible for ensuring the security of any dynamically injected content; this library does not perform sanitization.
 - TypeScript types are included.
